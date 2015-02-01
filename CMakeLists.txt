@@ -10,7 +10,6 @@ set(DESCRIPTION "playtime")
 set(README README.txt)
 set(LICENSE ${README})
 set(AUTHORS "Brendan Luchen")
-set(EXTRA_MODULES_IN "cmake/Modules")
 set(CMAKE_BUILD_TYPE Debug)
 
 #extract the proper versioning breakdown
@@ -19,8 +18,11 @@ list(GET PROJECT_VERSION 1 CPACK_PACKAGE_VERSION_MINOR )
 list(GET PROJECT_VERSION 2 CPACK_PACKAGE_VERSION_PATCH )
 set(VERSION_STRING "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR}.${CPACK_PACKAGE_VERSION_PATCH}")
 
+#Be compatible
+cmake_policy(VERSION 3.0)
+
 #declare the project
-project(${PROJECT_NAME})
+project(${PROJECT_NAME} VERSION ${VERSION_STRING})
 
 #Find required tools (SDL, GL, GLEW)
 find_package(SDL REQUIRED)
@@ -43,7 +45,6 @@ add_executable(${APP_NAME} ${SOURCES} ${EXTRA_SOURCES} ${HEADERS})
 #add some useful preprocessor defines
 set_property(
     TARGET ${APP_NAME} PROPERTY COMPILE_DEFINITIONS
-    ${COMPILEDEFS}
     PROJECT_NAME="${PROJECT_NAME}"
     AUTHOR_NAMES="${AUTHORS}"
 )
@@ -52,8 +53,8 @@ set_target_properties(${APP_NAME} PROPERTIES
   OUTPUT_NAME "${APP_NAME}-${VERSION_STRING}${APP_SUFFIX}"
 )
 #pass on the flags
-set(CMAKE_CXX_FLAGS ${COMPILE_FLAGS} ${CMAKE_CXX_FLAGS} )
-set(CMAKE_C_FLAGS   ${COMPILE_FLAGS} ${CMAKE_C_FLAGS} )
+# set(CMAKE_CXX_FLAGS ${COMPILE_FLAGS} ${CMAKE_CXX_FLAGS} )
+# set(CMAKE_C_FLAGS   ${COMPILE_FLAGS} ${CMAKE_C_FLAGS} )
 
 target_link_libraries(${APP_NAME} ${LINKED_LIBS})
 include_directories(${EXTRA_INCLUDE_DIRECTORIES})

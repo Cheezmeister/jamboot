@@ -75,10 +75,17 @@ typedef struct _Args {
 
 typedef struct _Input {
     bool quit;
-    float left;
-    float right;
-    float up;
-    float down;
+
+    struct _Axes {
+      float x1;
+      float x2;
+      float y1;
+      float y2;
+    } axes;
+
+    bool pause;
+    bool shoot;
+    
 } Input;
 
 typedef struct _GameState {
@@ -87,6 +94,7 @@ typedef struct _GameState {
         float x;
         float y;
       } pos;
+      struct _Pos reticle;
     } player;
 } GameState;
 
@@ -127,22 +135,13 @@ int parse_args(int argc, char** argv, Args* outArgs)
     return 0;
 }
 
-Input handle_input()
+void update_vbo(VertexBuffer<3> vertexPositions, GLuint which)
 {
-    SDL_Event event;
-    Input ret;
-    while (SDL_PollEvent(&event) )
-    {
-        if (event.type == SDL_QUIT) ret.quit = true;
-        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ret.quit = true;
-    }
-    const Uint8* keystate = SDL_GetKeyboardState(NULL);
-    ret.up = (keystate[SDL_SCANCODE_UP]);
-    ret.down = (keystate[SDL_SCANCODE_DOWN]);
-    ret.left = (keystate[SDL_SCANCODE_LEFT]);
-    ret.right = (keystate[SDL_SCANCODE_RIGHT]);
-    return ret;
+    glBindBuffer(GL_ARRAY_BUFFER, which);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions.flat), vertexPositions.flat, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
+
 
 void check_error(const string& message)
 {
@@ -153,14 +152,49 @@ void check_error(const string& message)
     }
 }
 
+Input handle_input()
+{
+    Input ret;
+
+    // Poll events
+    SDL_Event event;
+    while (SDL_PollEvent(&event) )
+    {
+        if (event.type == SDL_QUIT) ret.quit = true;
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ret.quit = true;
+    }
+
+    // Poll mouse
+    struct _Mouse {
+      Uint8 buttons;
+      int x;
+      int y;
+    } mouse;
+    mouse.buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
+
+    ret.shoot = mouse.buttons & SDL_BUTTON(1);
+    ret.axes.x2 = mouse.x * 2.0 / 200.0 - 1.0;
+    ret.axes.y2 = mouse.y * 2.0 / 200.0 - 1.0;
+    ret.axes.y2 *= -1;
+
+    // Poll keyboard
+    const Uint8* keystate = SDL_GetKeyboardState(NULL);
+    ret.axes.y1  = 1.0 * (keystate[SDL_SCANCODE_UP]);
+    ret.axes.y1 -= 1.0 * (keystate[SDL_SCANCODE_DOWN]);
+    ret.axes.x1  = 1.0 * (keystate[SDL_SCANCODE_RIGHT]);
+    ret.axes.x1 -= 1.0 * (keystate[SDL_SCANCODE_LEFT]);
+    return ret;
+}
+
 GLuint make_shader()
 {
     GLuint vertex = arcsynthesis::CreateShader(GL_VERTEX_SHADER,
                     "#version 120  \n"
                     "attribute vec4 inPos; \n"
+                    "uniform vec2 offset; \n"
                     "varying vec4 glPos; \n"
                     "void main() { \n"
-                    "  gl_Position = glPos = (inPos); \n"
+                    "  gl_Position = glPos = inPos + vec4(offset, 0, 1); \n"
                     "} \n"
     );
     GLuint fragment = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER,
@@ -178,31 +212,39 @@ GLuint make_shader()
 }
 
 GLuint vbo;
+GLuint reticle_vbo;
 GLuint shader;
-void render(GameState state)
+GLuint reticle_shader;
+void render(const GameState& state)
 {
     // Clear
     glClear(GL_COLOR_BUFFER_BIT);
     check_error("clearing to blue");
 
-    // Render
-    glUseProgram(shader);                                   check_error("binding shader");
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);                     check_error("binding buf");
-    glEnableVertexAttribArray(0);                           check_error("enabling vaa");
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);  check_error("calling vap");
-    glDrawArrays(GL_TRIANGLES, 0, 3);                       check_error("drawing arrays");
-    glDisableVertexAttribArray(0);                          check_error("disabling vaa");
+    // Render "player"
+    GLuint loc = glGetUniformLocation(shader, "offset");   check_error("getting param");
+    glUseProgram(shader);                                     check_error("binding shader");
+    glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
+    glEnableVertexAttribArray(0);                             check_error("enabling vaa");
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
+    glDrawArrays(GL_TRIANGLES, 0, 3);                         check_error("drawing arrays");
+    glDisableVertexAttribArray(0);                            check_error("disabling vaa");
+
+    // Render reticle
+    loc = glGetUniformLocation(reticle_shader, "offset");   check_error("getting param");
+    glUseProgram(reticle_shader);                             check_error("binding shader");
+    glUniform2f(loc, 2.0, -2.0); check_error("setting uniform");
+    glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
+    glEnableVertexAttribArray(0);                             check_error("enabling vaa");
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
+    glDrawArrays(GL_QUADS, 0, 4);                         check_error("drawing arrays");
+    glDisableVertexAttribArray(0);                            check_error("disabling vaa");
+
 
     // Commit
     SDL_GL_SwapWindow(win);
 
-}
-
-void update_vbo(VertexBuffer<3> vertexPositions, GLuint which)
-{
-    glBindBuffer(GL_ARRAY_BUFFER, which);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions.flat), vertexPositions.flat, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 void loop()
@@ -217,39 +259,52 @@ void loop()
     glBindBuffer(GL_ARRAY_BUFFER, vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions), vertexPositions.flat, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
+    VertexBuffer<4> reticleVertices = {
+         0.1f,  0.1f, 0.0f, 1.0f,
+         0.1f, -0.1f, 0.0f, 1.0f,
+        -0.1f, -0.1f, 0.0f, 1.0f,
+        -0.1f,  0.1f, 0.0f, 1.0f,
+    };
+    glGenBuffers(1, &reticle_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(reticleVertices), reticleVertices.flat, GL_STATIC_DRAW);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
 
     // Init shaders
     shader = make_shader();
+    reticle_shader = make_shader();
 
     // Misc setup
-    glClearColor(0.0f, 1.0f, 1.0f, 0.0f);
+    glClearColor(1.0f, 0.0f, 1.0f, 0.0f);
     check_error("clearcolor");
 
-    GameState state;
+    GameState state = {0};
 
     while (true)
     {
         // Input
         Input input = handle_input();
 
-        // Process input
+        // Process gameplay
         if (input.quit) break;
-        if (input.right)
-        {
-            state.player.pos.x += 0.05;
-        }
+        float movespeed = 0.2;
+        state.player.pos.y += movespeed * input.axes.y1;
+        state.player.pos.x += movespeed * input.axes.x1;
 
-        if (input.left)
-        {
-            state.player.pos.x -= 0.05;
-        }
+        state.player.reticle.y = input.axes.y2;
+        state.player.reticle.x = input.axes.x2;
+        log << "Mouse x is " << state.player.reticle.y << endl;;
+        log << "Mouse y is " << state.player.reticle.x << endl;;
 
+        // Render graphics
         render(state);
 
+        // Finish frame
         SDL_Delay(50);
     }
 }
+
 void print_info()
 {
     SDL_version version;
