@@ -88,6 +88,16 @@ typedef struct _Input {
     
 } Input;
 
+typedef struct _RenderState {
+  struct _SDL {
+    SDL_GLContext context;
+    struct _Viewport {
+      int x;
+      int y;
+    } viewport;
+  } sdl;
+} RenderState;
+
 typedef struct _GameState {
     struct _Player {
       struct _Pos {
@@ -115,9 +125,14 @@ union VertexBuffer {
 };
 
 
-
+// Ugly nasty globals
 SDL_Window* win;
 Args args;
+RenderState rs;
+GLuint vbo;
+GLuint reticle_vbo;
+GLuint shader;
+GLuint reticle_shader;
 
 int parse_args(int argc, char** argv, Args* outArgs)
 {
@@ -162,6 +177,15 @@ Input handle_input()
     {
         if (event.type == SDL_QUIT) ret.quit = true;
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ret.quit = true;
+        if (event.type == SDL_WINDOWEVENT)
+        {
+            if (event.window.event == SDL_WINDOWEVENT_RESIZED)
+            {
+                rs.sdl.viewport.x = event.window.data1;
+                rs.sdl.viewport.y = event.window.data2;
+                glViewport(0, 0, rs.sdl.viewport.x, rs.sdl.viewport.y);
+            }
+        }
     }
 
     // Poll mouse
@@ -173,8 +197,8 @@ Input handle_input()
     mouse.buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
 
     ret.shoot = mouse.buttons & SDL_BUTTON(1);
-    ret.axes.x2 = mouse.x * 2.0 / 200.0 - 1.0;
-    ret.axes.y2 = mouse.y * 2.0 / 200.0 - 1.0;
+    ret.axes.x2 = mouse.x * 2.0 / rs.sdl.viewport.x - 1.0;
+    ret.axes.y2 = mouse.y * 2.0 / rs.sdl.viewport.y - 1.0;
     ret.axes.y2 *= -1;
 
     // Poll keyboard
@@ -211,10 +235,6 @@ GLuint make_shader()
     return program;
 }
 
-GLuint vbo;
-GLuint reticle_vbo;
-GLuint shader;
-GLuint reticle_shader;
 void render(const GameState& state)
 {
     // Clear
@@ -234,7 +254,7 @@ void render(const GameState& state)
     // Render reticle
     loc = glGetUniformLocation(reticle_shader, "offset");   check_error("getting param");
     glUseProgram(reticle_shader);                             check_error("binding shader");
-    glUniform2f(loc, 2.0, -2.0); check_error("setting uniform");
+    glUniform2f(loc, 2*state.player.reticle.x, 2*state.player.reticle.y); check_error("setting uniform");
     glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
     glEnableVertexAttribArray(0);                             check_error("enabling vaa");
     glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
@@ -249,6 +269,9 @@ void render(const GameState& state)
 
 void loop()
 {
+    log << "in loop, viewport x is " << rs.sdl.viewport.y << endl;
+    log << "in loop, viewport y is " << rs.sdl.viewport.x << endl;
+
     // Set up VBO
     VertexBuffer<3> vertexPositions = {
         0.75f, 0.75f, 0.0f, 1.0f,
@@ -269,7 +292,6 @@ void loop()
     glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);
     glBufferData(GL_ARRAY_BUFFER, sizeof(reticleVertices), reticleVertices.flat, GL_STATIC_DRAW);
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
 
     // Init shaders
     shader = make_shader();
@@ -296,12 +318,14 @@ void loop()
         state.player.reticle.x = input.axes.x2;
         log << "Mouse x is " << state.player.reticle.y << endl;;
         log << "Mouse y is " << state.player.reticle.x << endl;;
+        log << "viewport x is " << rs.sdl.viewport.y << endl;;
+        log << "viewport y is " << rs.sdl.viewport.x << endl;;
 
         // Render graphics
         render(state);
 
         // Finish frame
-        SDL_Delay(50);
+        SDL_Delay(20);
     }
 }
 
@@ -336,18 +360,21 @@ int main ( int argc, char** argv )
         return 1;
     }
 
-    win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    rs.sdl.viewport.x = rs.sdl.viewport.y = 200;
+    win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, rs.sdl.viewport.x, rs.sdl.viewport.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (win == NULL)
     {
         cerr << "Couldn't set video mode";
         return 2;
     }
+        log << "viewport x is " << rs.sdl.viewport.y << endl;;
+        log << "viewport y is " << rs.sdl.viewport.x << endl;;
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GLContext context = SDL_GL_CreateContext(win);
+    SDL_GLContext context = rs.sdl.context = SDL_GL_CreateContext(win);
     if (context == NULL)
     {
         cerr << "Couldn't get a gl context: " << SDL_GetError();
@@ -363,6 +390,8 @@ int main ( int argc, char** argv )
 
     print_info();
 
+        log << "viewport x is " << rs.sdl.viewport.y << endl;;
+        log << "viewport y is " << rs.sdl.viewport.x << endl;;
     loop();
 
     SDL_GL_DeleteContext(context);
