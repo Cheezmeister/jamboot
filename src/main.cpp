@@ -76,6 +76,7 @@ typedef struct _Args {
 typedef struct _Input {
     bool quit;
 
+    // Normalized (-1.0 <-> 1.0) axes
     struct _Axes {
       float x1;
       float x2;
@@ -89,7 +90,7 @@ typedef struct _Input {
 } Input;
 
 typedef struct _RenderState {
-  struct _SDL {
+  struct _SdlRenderState {
     SDL_GLContext context;
     struct _Viewport {
       int x;
@@ -181,9 +182,12 @@ Input handle_input()
         {
             if (event.window.event == SDL_WINDOWEVENT_RESIZED)
             {
-                rs.sdl.viewport.x = event.window.data1;
-                rs.sdl.viewport.y = event.window.data2;
-                glViewport(0, 0, rs.sdl.viewport.x, rs.sdl.viewport.y);
+                int x = event.window.data1;
+                int y = event.window.data2;
+                rs.sdl.viewport.x = x;
+                rs.sdl.viewport.y = x;
+                int max = x > y ? x : y;
+                glViewport(0, 0, max, max);
             }
         }
     }
@@ -196,10 +200,11 @@ Input handle_input()
     } mouse;
     mouse.buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
 
-    ret.shoot = mouse.buttons & SDL_BUTTON(1);
+    ret.shoot = (mouse.buttons & SDL_BUTTON(1));
     ret.axes.x2 = mouse.x * 2.0 / rs.sdl.viewport.x - 1.0;
     ret.axes.y2 = mouse.y * 2.0 / rs.sdl.viewport.y - 1.0;
     ret.axes.y2 *= -1;
+
 
     // Poll keyboard
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
@@ -269,9 +274,6 @@ void render(const GameState& state)
 
 void loop()
 {
-    log << "in loop, viewport x is " << rs.sdl.viewport.y << endl;
-    log << "in loop, viewport y is " << rs.sdl.viewport.x << endl;
-
     // Set up VBO
     VertexBuffer<3> vertexPositions = {
         0.75f, 0.75f, 0.0f, 1.0f,
@@ -311,15 +313,11 @@ void loop()
         // Process gameplay
         if (input.quit) break;
         float movespeed = 0.2;
-        state.player.pos.y += movespeed * input.axes.y1;
         state.player.pos.x += movespeed * input.axes.x1;
+        state.player.pos.y += movespeed * input.axes.y1;
 
-        state.player.reticle.y = input.axes.y2;
         state.player.reticle.x = input.axes.x2;
-        log << "Mouse x is " << state.player.reticle.y << endl;;
-        log << "Mouse y is " << state.player.reticle.x << endl;;
-        log << "viewport x is " << rs.sdl.viewport.y << endl;;
-        log << "viewport y is " << rs.sdl.viewport.x << endl;;
+        state.player.reticle.y = input.axes.y2;
 
         // Render graphics
         render(state);
@@ -367,8 +365,6 @@ int main ( int argc, char** argv )
         cerr << "Couldn't set video mode";
         return 2;
     }
-        log << "viewport x is " << rs.sdl.viewport.y << endl;;
-        log << "viewport y is " << rs.sdl.viewport.x << endl;;
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
@@ -390,8 +386,6 @@ int main ( int argc, char** argv )
 
     print_info();
 
-        log << "viewport x is " << rs.sdl.viewport.y << endl;;
-        log << "viewport y is " << rs.sdl.viewport.x << endl;;
     loop();
 
     SDL_GL_DeleteContext(context);
