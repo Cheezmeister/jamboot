@@ -1,70 +1,9 @@
 #include <iostream>
-
 #include <ctime>
 #include <GL/glew.h>
-#include "/usr/local/Cellar/sdl2/2.0.3/include/SDL2/SDL.h"
 #include <OpenGL/gl.h>
-
-#define DEBUGVAR(x) cout << #x " is " << x << endl;
-#define log std::cout
-
-// Adapted from arsynthesis.org/gltut
-namespace arcsynthesis {
-
-    GLuint CreateShader(GLenum eShaderType, const char* strFileData)
-    {
-        GLuint shader = glCreateShader(eShaderType);
-        glShaderSource(shader, 1, &strFileData, NULL);
-
-        glCompileShader(shader);
-
-        GLint status;
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &status);
-        if (status == GL_FALSE)
-        {
-            GLint infoLogLength;
-            glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &infoLogLength);
-
-            GLchar *strInfoLog = new GLchar[infoLogLength + 1];
-            glGetShaderInfoLog(shader, infoLogLength, NULL, strInfoLog);
-
-            const char *strShaderType = eShaderType == GL_VERTEX_SHADER ? "vertex" : "fragment";
-            fprintf(stderr, "Compile failure in %s shader:\n%s\n", strShaderType, strInfoLog);
-            delete[] strInfoLog;
-        }
-
-        return shader;
-    }
-
-
-    GLuint CreateProgram(GLuint vertex, GLuint fragment)
-    {
-        GLuint program = glCreateProgram();
-
-        glAttachShader(program, vertex);
-        glAttachShader(program, fragment);
-
-        glLinkProgram(program);
-
-        GLint status;
-        glGetProgramiv (program, GL_LINK_STATUS, &status);
-        if (status == GL_FALSE)
-        {
-            GLint infoLogLength;
-            glGetProgramiv(program, GL_INFO_LOG_LENGTH, &infoLogLength);
-
-            GLchar *strInfoLog = new GLchar[infoLogLength + 1];
-            glGetProgramInfoLog(program, infoLogLength, NULL, strInfoLog);
-            fprintf(stderr, "Linker failure: %s\n", strInfoLog);
-            delete[] strInfoLog;
-        }
-
-        glDetachShader(program, vertex);
-        glDetachShader(program, fragment);
-
-        return program;
-    }
-}
+#include "/usr/local/Cellar/sdl2/2.0.3/include/SDL2/SDL.h"
+#include "bml.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 using namespace std;
@@ -91,7 +30,6 @@ typedef struct _Input {
 
 typedef struct _RenderState {
   struct _SdlRenderState {
-    SDL_GLContext context;
     struct _Viewport {
       int x;
       int y;
@@ -99,41 +37,11 @@ typedef struct _RenderState {
   } sdl;
 } RenderState;
 
-typedef struct _GameState {
-    struct _Player {
-      struct _Pos {
-        float x;
-        float y;
-      } pos;
-      struct _Pos reticle;
-    } player;
-} GameState;
-
-typedef union Vertex {
-    float a[4];
-    struct {
-      float x;
-      float y;
-      float z;
-      float w;
-    };
-} Vertex;
-
-template<int N>
-union VertexBuffer {
-  float flat[4 * N];
-  Vertex v[N];
-};
-
 
 // Ugly nasty globals
 SDL_Window* win;
 Args args;
 RenderState rs;
-GLuint vbo;
-GLuint reticle_vbo;
-GLuint shader;
-GLuint reticle_shader;
 
 int parse_args(int argc, char** argv, Args* outArgs)
 {
@@ -149,23 +57,6 @@ int parse_args(int argc, char** argv, Args* outArgs)
     }
 
     return 0;
-}
-
-void update_vbo(VertexBuffer<3> vertexPositions, GLuint which)
-{
-    glBindBuffer(GL_ARRAY_BUFFER, which);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions.flat), vertexPositions.flat, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-}
-
-
-void check_error(const string& message)
-{
-    GLenum error = glGetError();
-    if (error || args.debug)
-    {
-        log << message << " reported error: " << error << endl;
-    }
 }
 
 Input handle_input()
@@ -215,93 +106,11 @@ Input handle_input()
     return ret;
 }
 
-GLuint make_shader()
-{
-    GLuint vertex = arcsynthesis::CreateShader(GL_VERTEX_SHADER,
-                    "#version 120  \n"
-                    "attribute vec4 inPos; \n"
-                    "uniform vec2 offset; \n"
-                    "varying vec4 glPos; \n"
-                    "void main() { \n"
-                    "  gl_Position = glPos = inPos + vec4(offset, 0, 1); \n"
-                    "} \n"
-    );
-    GLuint fragment = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER,
-                      "#version 120 \n"
-                      /* "out vec3 color; \n" */
-                      "varying vec4 glPos; \n"
-                      "void main() { \n"
-                      "  vec3 c = cross(vec3(1, 0, 0), vec3(glPos.x, glPos.y, 0)); \n"
-                      "  float green = length(c); \n"
-                      "  gl_FragColor = vec4(glPos.x,green,glPos.y,0); \n"
-                      "} \n"
-    );
-    GLuint program = arcsynthesis::CreateProgram(vertex, fragment);
-    return program;
-}
-
-void render(const GameState& state)
-{
-    // Clear
-    glClear(GL_COLOR_BUFFER_BIT);
-    check_error("clearing to blue");
-
-    // Render "player"
-    GLuint loc = glGetUniformLocation(shader, "offset");   check_error("getting param");
-    glUseProgram(shader);                                     check_error("binding shader");
-    glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
-    glEnableVertexAttribArray(0);                             check_error("enabling vaa");
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
-    glDrawArrays(GL_TRIANGLES, 0, 3);                         check_error("drawing arrays");
-    glDisableVertexAttribArray(0);                            check_error("disabling vaa");
-
-    // Render reticle
-    loc = glGetUniformLocation(reticle_shader, "offset");   check_error("getting param");
-    glUseProgram(reticle_shader);                             check_error("binding shader");
-    glUniform2f(loc, 2*state.player.reticle.x, 2*state.player.reticle.y); check_error("setting uniform");
-    glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
-    glEnableVertexAttribArray(0);                             check_error("enabling vaa");
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
-    glDrawArrays(GL_QUADS, 0, 4);                         check_error("drawing arrays");
-    glDisableVertexAttribArray(0);                            check_error("disabling vaa");
-
-
-    // Commit
-    SDL_GL_SwapWindow(win);
-
-}
 
 void loop()
 {
-    // Set up VBO
-    VertexBuffer<3> vertexPositions = {
-        0.75f, 0.75f, 0.0f, 1.0f,
-        0.75f, -0.75f, 0.0f, 1.0f,
-        -0.75f, -0.75f, 0.0f, 1.0f,
-    };
-    glGenBuffers(1, &vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions), vertexPositions.flat, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    VertexBuffer<4> reticleVertices = {
-         0.1f,  0.1f, 0.0f, 1.0f,
-         0.1f, -0.1f, 0.0f, 1.0f,
-        -0.1f, -0.1f, 0.0f, 1.0f,
-        -0.1f,  0.1f, 0.0f, 1.0f,
-    };
-    glGenBuffers(1, &reticle_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(reticleVertices), reticleVertices.flat, GL_STATIC_DRAW);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    // Init shaders
-    shader = make_shader();
-    reticle_shader = make_shader();
-
-    // Misc setup
-    glClearColor(1.0f, 0.0f, 1.0f, 0.0f);
-    check_error("clearcolor");
+    gfx::init();
 
     GameState state = {0};
 
@@ -320,7 +129,10 @@ void loop()
         state.player.reticle.y = input.axes.y2;
 
         // Render graphics
-        render(state);
+        gfx::render(state);
+
+        // Commit
+        SDL_GL_SwapWindow(win);
 
         // Finish frame
         SDL_Delay(20);
@@ -358,8 +170,7 @@ int main ( int argc, char** argv )
         return 1;
     }
 
-    rs.sdl.viewport.x = rs.sdl.viewport.y = 200;
-    win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, rs.sdl.viewport.x, rs.sdl.viewport.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (win == NULL)
     {
         cerr << "Couldn't set video mode";
@@ -370,7 +181,7 @@ int main ( int argc, char** argv )
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GLContext context = rs.sdl.context = SDL_GL_CreateContext(win);
+    SDL_GLContext context = SDL_GL_CreateContext(win);
     if (context == NULL)
     {
         cerr << "Couldn't get a gl context: " << SDL_GetError();

@@ -1,4 +1,3 @@
-#CMake script for Spheres of Influence
 #Run 'cmake <source_directory>' to generate a makefile
 cmake_minimum_required(VERSION 2.6)
 
@@ -36,7 +35,7 @@ list(APPEND LINKED_LIBS ${GLEW_LIBRARY})
 
 #grab source files
 file(GLOB_RECURSE HEADERS ${CMAKE_SOURCE_DIR}/src/*.h)
-list(APPEND SOURCES src/main.cpp)
+list(APPEND SOURCES src/main.cpp src/render_gl.cpp)
 
 #declare the target program
 add_executable(${APP_NAME} ${SOURCES} ${EXTRA_SOURCES} ${HEADERS})
