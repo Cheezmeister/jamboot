@@ -12,36 +12,16 @@ typedef struct _Args {
     bool debug;
 } Args;
 
-typedef struct _Input {
-    bool quit;
-
-    // Normalized (-1.0 <-> 1.0) axes
-    struct _Axes {
-      float x1;
-      float x2;
-      float y1;
-      float y2;
-    } axes;
-
-    bool pause;
-    bool shoot;
-    
-} Input;
-
-typedef struct _RenderState {
-  struct _SdlRenderState {
-    struct _Viewport {
-      int x;
-      int y;
-    } viewport;
-  } sdl;
-} RenderState;
+typedef struct _Dimension2 {
+  float x;
+  float y;
+} Dimension2;
 
 
 // Ugly nasty globals
 SDL_Window* win;
 Args args;
-RenderState rs;
+Dimension2 viewport;
 
 int parse_args(int argc, char** argv, Args* outArgs)
 {
@@ -75,8 +55,8 @@ Input handle_input()
             {
                 int x = event.window.data1;
                 int y = event.window.data2;
-                rs.sdl.viewport.x = x;
-                rs.sdl.viewport.y = x;
+                viewport.x = x;
+                viewport.y = x;
                 int max = x > y ? x : y;
                 glViewport(0, 0, max, max);
             }
@@ -85,15 +65,15 @@ Input handle_input()
 
     // Poll mouse
     struct _Mouse {
-      Uint8 buttons;
-      int x;
-      int y;
+        Uint8 buttons;
+        int x;
+        int y;
     } mouse;
     mouse.buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
 
     ret.shoot = (mouse.buttons & SDL_BUTTON(1));
-    ret.axes.x2 = mouse.x * 2.0 / rs.sdl.viewport.x - 1.0;
-    ret.axes.y2 = mouse.y * 2.0 / rs.sdl.viewport.y - 1.0;
+    ret.axes.x2 = mouse.x * 2.0 / viewport.x - 1.0;
+    ret.axes.y2 = mouse.y * 2.0 / viewport.y - 1.0;
     ret.axes.y2 *= -1;
 
 
@@ -118,15 +98,10 @@ void loop()
     {
         // Input
         Input input = handle_input();
+        if (input.quit) break;
 
         // Process gameplay
-        if (input.quit) break;
-        float movespeed = 0.2;
-        state.player.pos.x += movespeed * input.axes.x1;
-        state.player.pos.y += movespeed * input.axes.y1;
-
-        state.player.reticle.x = input.axes.x2;
-        state.player.reticle.y = input.axes.y2;
+        game::update(state, input);
 
         // Render graphics
         gfx::render(state);
@@ -170,6 +145,8 @@ int main ( int argc, char** argv )
         return 1;
     }
 
+    viewport.x = 200;
+    viewport.y = 200;
     win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (win == NULL)
     {

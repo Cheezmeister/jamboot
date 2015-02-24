@@ -110,15 +110,21 @@ namespace gfx
         }
     }
 
+    // Player shader
     GLuint make_shader()
     {
         GLuint vertex = arcsynthesis::CreateShader(GL_VERTEX_SHADER,
                         "#version 120  \n"
                         "attribute vec4 inPos; \n"
                         "uniform vec2 offset; \n"
+                        "uniform float rotation; \n"
                         "varying vec4 glPos; \n"
                         "void main() { \n"
-                        "  gl_Position = glPos = inPos + vec4(offset, 0, 1); \n"
+                        "  vec2 rotated;\n"
+                        "  rotated.x = inPos.x * cos(rotation) - inPos.y * sin(rotation);\n"
+                        "  rotated.y = inPos.x * sin(rotation) + inPos.y * cos(rotation);\n"
+                        "  vec2 pos = rotated;\n"
+                        "  gl_Position = glPos = vec4(offset + pos, 0, 1); \n"
                         "} \n"
         );
         GLuint fragment = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER,
@@ -138,8 +144,8 @@ namespace gfx
     {
         // Set up VBO
         VertexBuffer<3> vertexPositions = {
-            0.75f, 0.75f, 0.0f, 1.0f,
-            0.75f, -0.75f, 0.0f, 1.0f,
+             0.75f, 0.0f, 0.0f, 1.0f,
+            -0.75f, 0.75f, 0.0f, 1.0f,
             -0.75f, -0.75f, 0.0f, 1.0f,
         };
         glGenBuffers(1, &vbo);
@@ -174,9 +180,11 @@ namespace gfx
         check_error("clearing to blue");
 
         // Render "player"
-        GLuint loc = glGetUniformLocation(shader, "offset");   check_error("getting param");
+        GLuint loc = glGetUniformLocation(shader, "offset");      check_error("getting param");
         glUseProgram(shader);                                     check_error("binding shader");
         glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
+        loc = glGetUniformLocation(shader, "rotation");           check_error("getting param");
+        glUniform1f(loc, state.player.rotation); check_error("setting uniform");
         glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
         glEnableVertexAttribArray(0);                             check_error("enabling vaa");
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
