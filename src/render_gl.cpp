@@ -118,12 +118,13 @@ namespace gfx
                         "attribute vec4 inPos; \n"
                         "uniform vec2 offset; \n"
                         "uniform float rotation; \n"
+                        "uniform float ticks; \n"
                         "varying vec4 glPos; \n"
                         "void main() { \n"
                         "  vec2 rotated;\n"
                         "  rotated.x = inPos.x * cos(rotation) - inPos.y * sin(rotation);\n"
                         "  rotated.y = inPos.x * sin(rotation) + inPos.y * cos(rotation);\n"
-                        "  vec2 pos = rotated;\n"
+                        "  vec2 pos = rotated * (0.2 + 0.1 * sin(ticks));\n"
                         "  gl_Position = glPos = vec4(offset + pos, 0, 1); \n"
                         "} \n"
         );
@@ -173,7 +174,7 @@ namespace gfx
     }
 
     // Render a frame
-    void render(GameState& state)
+    void render(GameState& state, u32 ticks)
     {
         // Clear
         glClear(GL_COLOR_BUFFER_BIT);
@@ -185,6 +186,8 @@ namespace gfx
         glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
         loc = glGetUniformLocation(shader, "rotation");           check_error("getting param");
         glUniform1f(loc, state.player.rotation); check_error("setting uniform");
+        loc = glGetUniformLocation(shader, "ticks");           check_error("getting param");
+        glUniform1f(loc, ticks / 100.0f); check_error("setting ticks");
         glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
         glEnableVertexAttribArray(0);                             check_error("enabling vaa");
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");

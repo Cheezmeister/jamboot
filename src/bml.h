@@ -6,6 +6,10 @@
 
 #define DEBUGVAR(x) bml::debug << #x " is " << x << endl;
 const char ESCAPE = '\e';
+
+typedef uint32_t u32;
+typedef int32_t i32;
+
 namespace bml 
 {
   static std::ostream& log = std::cout;
@@ -13,6 +17,17 @@ namespace bml
     float x;
     float y;
   } Vec;
+
+  static Vec operator +(const Vec& lhs, const Vec& rhs)
+  {
+    Vec ret = {lhs.x + rhs.x, lhs.y + rhs.y};
+    return ret;
+  }
+  static void operator +=(Vec& lhs, const Vec& rhs)
+  {
+    lhs.x += rhs.x;
+    lhs.y += rhs.y;
+  }
 }
 
 
@@ -45,7 +60,7 @@ typedef struct _GameState {
 namespace gfx
 {
   void init();
-  void render(GameState& state);
+  void render(GameState& state, u32 ticks);
 }
 
 namespace game

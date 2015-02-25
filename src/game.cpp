@@ -3,6 +3,10 @@
 
 namespace game {
 
+struct _GameParams {
+    float movespeed, rotspeed, drag ;
+} params = {   0.01,      0.1, 0.9 };
+
 void init()
 {
 }
@@ -10,17 +14,14 @@ void init()
 void update(GameState& state, const Input& input)
 {
     // Movement
-    float movespeed = 0.02;
-    float rotspeed = 0.1;
-    float thrust = movespeed * input.axes.y1;
-    state.player.rotation -= rotspeed * input.axes.x1;
+    float thrust = params.movespeed * input.axes.y1;
+    state.player.rotation -= params.rotspeed * input.axes.x1;
     state.player.vel.x += thrust * cos(state.player.rotation);
     state.player.vel.y += thrust * sin(state.player.rotation);
 
-    state.player.pos.x += state.player.vel.x;
-    state.player.pos.y += state.player.vel.y;
-
-    /* std::cerr << "pos " << state.player.pos.x << ' ' << state.player.pos.y << "rot " << state.player.rotation << '\n'; */
+    state.player.pos += state.player.vel;
+    state.player.vel.x *= params.drag;
+    state.player.vel.y *= params.drag;
 
     // Aiming
     state.player.reticle.x = input.axes.x2;

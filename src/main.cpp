@@ -91,11 +91,15 @@ void loop()
 {
 
     gfx::init();
+    game::init();
 
     GameState state = {0};
 
     while (true)
     {
+        // Timing
+        u32 ticks = SDL_GetTicks();
+
         // Input
         Input input = handle_input();
         if (input.quit) break;
@@ -104,7 +108,7 @@ void loop()
         game::update(state, input);
 
         // Render graphics
-        gfx::render(state);
+        gfx::render(state, ticks);
 
         // Commit
         SDL_GL_SwapWindow(win);
@@ -128,7 +132,7 @@ void print_info()
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 }
 
-int scratch() 
+int scratch()
 {
   return 0;
 }
