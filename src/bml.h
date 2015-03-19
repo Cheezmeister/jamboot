@@ -36,25 +36,43 @@ typedef struct _Input {
 
     // Normalized (-1.0 <-> 1.0) axes
     struct _Axes {
-      float x1;
-      float x2;
-      float y1;
-      float y2;
+        float x1;
+        float x2;
+        float x3;
+        float x4;
+        float y1;
+        float y2;
+        float y3;
+        float y4;
     } axes;
 
-    bool pause;
-    bool shoot;
+    struct _Held {
+        bool prime;
+        bool aux;
+    } held;
+
+    struct _Action {
+        bool prime;
+        bool aux;
+    } action;
     
+    bool pause;
+
 } Input;
 
 
 typedef struct _GameState {
     struct _Player {
-      bml::Vec pos;
-      bml::Vec vel;
-      float rotation; // radians
-      bml::Vec reticle;
+        bml::Vec pos;
+        bml::Vec vel;
+        float rotation; // radians
+        float scale; // 0-2.0
+        int mode;
     } player;
+    struct _Reticle {
+        bml::Vec pos;
+        float scale; // 0-2.0
+    } reticle;
 } GameState;
 
 namespace gfx

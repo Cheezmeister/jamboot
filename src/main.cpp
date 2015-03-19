@@ -2,7 +2,7 @@
 #include <ctime>
 #include <GL/glew.h>
 #include <OpenGL/gl.h>
-#include "/usr/local/Cellar/sdl2/2.0.3/include/SDL2/SDL.h"
+#include "SDL.h"
 #include "bml.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,6 +20,7 @@ typedef struct _Dimension2 {
 
 // Ugly nasty globals
 SDL_Window* win;
+SDL_GameController* controller = NULL;
 Args args;
 Dimension2 viewport;
 
@@ -41,14 +42,16 @@ int parse_args(int argc, char** argv, Args* outArgs)
 
 Input handle_input()
 {
-    Input ret;
+    Input ret = {0};
 
-    // Poll events
+    // Process events first
     SDL_Event event;
     while (SDL_PollEvent(&event) )
     {
         if (event.type == SDL_QUIT) ret.quit = true;
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ret.quit = true;
+
+        // Window resize
         if (event.type == SDL_WINDOWEVENT)
         {
             if (event.window.event == SDL_WINDOWEVENT_RESIZED)
@@ -61,28 +64,54 @@ Input handle_input()
                 glViewport(0, 0, max, max);
             }
         }
+
+        // Gamepad buttons
+        if (event.type == SDL_CONTROLLERBUTTONDOWN)
+        {
+            if (event.cbutton.button & SDL_CONTROLLER_BUTTON_A)
+            {
+                ret.action.prime = true;
+            }
+        }
+        // Keyboard presses
+        if (event.type == SDL_KEYDOWN)
+        {
+            if (event.key.keysym.sym == SDLK_SPACE)
+            {
+                ret.action.prime = true;
+            }
+        }
     }
 
-    // Poll mouse
+    // Poll the current state of the mouse
     struct _Mouse {
         Uint8 buttons;
         int x;
         int y;
     } mouse;
     mouse.buttons = SDL_GetMouseState(&mouse.x, &mouse.y);
-
-    ret.shoot = (mouse.buttons & SDL_BUTTON(1));
+    ret.held.prime |= (mouse.buttons & SDL_BUTTON(1));
     ret.axes.x2 = mouse.x * 2.0 / viewport.x - 1.0;
     ret.axes.y2 = mouse.y * 2.0 / viewport.y - 1.0;
     ret.axes.y2 *= -1;
 
 
-    // Poll keyboard
+    // Poll the current state of the keyboard
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     ret.axes.y1  = 1.0 * (keystate[SDL_SCANCODE_UP]);
     ret.axes.y1 -= 1.0 * (keystate[SDL_SCANCODE_DOWN]);
     ret.axes.x1  = 1.0 * (keystate[SDL_SCANCODE_RIGHT]);
     ret.axes.x1 -= 1.0 * (keystate[SDL_SCANCODE_LEFT]);
+
+    // Poll the gamepad sticks
+    ret.axes.x3 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTX) / (float)32767;
+    ret.axes.x4 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTX) / (float)32767;
+    ret.axes.y3 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / (float)32767;
+    ret.axes.y4 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / (float)32767;
+
+    // Poll gamepad buttons
+    ret.held.aux = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
+
     return ret;
 }
 
@@ -94,6 +123,14 @@ void loop()
     game::init();
 
     GameState state = {0};
+
+    for (int i = 0; i < SDL_NumJoysticks(); ++i)
+    {
+        if (SDL_IsGameController(i))
+        {
+            controller = SDL_GameControllerOpen(i);
+        }
+    }
 
     while (true)
     {
@@ -132,10 +169,6 @@ void print_info()
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 }
 
-int scratch()
-{
-  return 0;
-}
 int main ( int argc, char** argv )
 {
     int ret = parse_args(argc, argv, &args);
@@ -143,7 +176,7 @@ int main ( int argc, char** argv )
 
     srand(time(NULL));
 
-    if (SDL_Init(SDL_INIT_VIDEO) < 0)
+    if (SDL_Init(SDL_INIT_EVERYTHING) < 0)
     {
         cerr << "Couldn't init SDL";
         return 1;
@@ -169,6 +202,8 @@ int main ( int argc, char** argv )
         return 3;
     }
 
+    SDL_ShowCursor(SDL_DISABLE);
+
     GLenum err = glewInit();
     if (GLEW_OK != err)
     {
@@ -180,6 +215,7 @@ int main ( int argc, char** argv )
 
     loop();
 
+    if (controller) SDL_GameControllerClose(controller);
     SDL_GL_DeleteContext(context);
     SDL_Quit();
     return 0;
