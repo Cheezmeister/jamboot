@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdint>
 
 #ifndef NULL
 #define NULL 0
@@ -12,7 +13,7 @@ typedef int32_t i32;
 
 namespace bml 
 {
-  static std::ostream& log = std::cout;
+  static std::ostream& logger = std::cout;
   typedef struct _Vec {
     float x;
     float y;

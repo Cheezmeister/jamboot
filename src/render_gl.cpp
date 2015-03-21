@@ -1,4 +1,9 @@
-#include <OpenGL/gl.h>
+#if _WIN32
+#include <Windows.h>
+#endif
+
+#include <GL/glew.h>
+#include <GL/gl.h>
 #include "bml.h"
 
 // http://stackoverflow.com/a/13874526
@@ -105,8 +110,7 @@ namespace gfx
         GLenum error = glGetError();
         if (error)
         {
-            // TODO get text of error
-            log << message << " reported error: " << error << endl;
+            logger << message.c_str() << " reported error: " << error << ' ' << gluErrorString(error) << endl;
         }
     }
 
