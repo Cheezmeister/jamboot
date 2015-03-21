@@ -1,7 +1,11 @@
+#if _WIN32
+#include <Windows.h>
+#endif
+
 #include <iostream>
 #include <ctime>
 #include <GL/glew.h>
-#include <OpenGL/gl.h>
+#include <GL/gl.h>
 #include "SDL.h"
 #include "bml.h"
 
@@ -169,7 +173,8 @@ void print_info()
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 }
 
-int main ( int argc, char** argv )
+extern "C"
+int main(int argc, char** argv )
 {
     int ret = parse_args(argc, argv, &args);
     if (ret) return ret;
@@ -184,7 +189,7 @@ int main ( int argc, char** argv )
 
     viewport.x = 200;
     viewport.y = 200;
-    win = SDL_CreateWindow("SDL2/GL4.3", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    win = SDL_CreateWindow("SDL2/GL2.1", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (win == NULL)
     {
         cerr << "Couldn't set video mode";
