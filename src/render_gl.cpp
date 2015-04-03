@@ -3,7 +3,7 @@
 #endif
 
 #include <GL/glew.h>
-#include <GL/gl.h>
+#include "crossgl.h"
 #include "bml.h"
 
 // http://stackoverflow.com/a/13874526
@@ -87,6 +87,14 @@ union VertexBuffer {
   Vertex v[N];
 };
 
+typedef struct _RenderState {
+  struct _Viewport {
+    int width;
+    int height;
+    int max;
+  } viewport;
+} RenderState;
+
 namespace gfx
 {
 
@@ -95,6 +103,8 @@ namespace gfx
     GLuint reticle_vbo;
     GLuint shader;
     GLuint reticle_shader;
+
+    RenderState renderstate = {1, 1, 1};
 
     // Update a VBO
     void update_vbo(VertexBuffer<3> vertexPositions, GLuint which)
@@ -110,8 +120,50 @@ namespace gfx
         GLenum error = glGetError();
         if (error)
         {
-            logger << message.c_str() << " reported error: " << error << ' ' << gluErrorString(error) << endl;
+            logger << "Error " << message.c_str() << ": [" << error << "] ";
+            switch (error)
+            {
+            case 1282:
+                logger << "invalid operation\n";
+                return;
+            default:
+                logger << "unknown error\n";
+                return;
+            }
         }
+    }
+
+    // Set a uniform shader param
+    void set_uniform(GLuint shader, const string& name, float f)
+    {
+        GLuint loc = glGetUniformLocation(shader, name.c_str());
+        glUniform1f(loc, f);
+    }
+    void set_uniform(GLuint shader, const string& name, float x, float y)
+    {
+        GLuint loc = glGetUniformLocation(shader, name.c_str());
+        glUniform2f(loc, x, y);
+    }
+    void set_uniform(GLuint shader, const string& name, const Vec& v)
+    {
+        set_uniform(shader, name, v.x, v.y);
+    }
+
+    // Rejigger viewport
+    void resize(int x, int y)
+    {
+        int max = x > y ? x : y;
+        renderstate.viewport.width = x;
+        renderstate.viewport.height = y;
+        renderstate.viewport.max = max;
+        glViewport(0, 0, x, y);
+    }
+
+    float get_aspect()
+    {
+        float width = renderstate.viewport.width;
+        float height = renderstate.viewport.height;
+        return width / height;
     }
 
     // Player shader
@@ -125,12 +177,16 @@ namespace gfx
                         "uniform float ticks; \n"
                         "uniform float scale; \n"
                         "varying vec4 glPos; \n"
+                        "uniform float aspect = 1; \n"
                         "void main() { \n"
                         "  vec2 rotated;\n"
                         "  rotated.x = inPos.x * cos(rotation) - inPos.y * sin(rotation);\n"
                         "  rotated.y = inPos.x * sin(rotation) + inPos.y * cos(rotation);\n"
-                        "  vec2 pos = rotated * (0.2 + 0.1 * scale);\n"
-                        "  gl_Position = glPos = vec4(offset + pos, 0, 1); \n"
+                        "  vec2 pos = rotated * scale;\n"
+                        "  pos += offset; \n"
+                        "  pos.y *= aspect; \n"
+                        "  if (aspect > 1) pos /= aspect; \n"
+                        "  gl_Position = glPos = vec4(pos, 0, 1); \n"
                         "} \n"
         );
         GLuint fragment = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER,
@@ -188,16 +244,13 @@ namespace gfx
 
         // Render "player"
         glUseProgram(shader);                                     check_error("binding shader");
+        set_uniform(shader, "aspect", get_aspect());      check_error("getting param");
         GLuint loc = glGetUniformLocation(shader, "offset");      check_error("getting param 'offset'");
         glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
-        loc = glGetUniformLocation(shader, "rotation");           check_error("getting param 'rotation'");
-        glUniform1f(loc, state.player.rotation);                  check_error("setting uniform");
-        loc = glGetUniformLocation(shader, "ticks");              check_error("getting param 'ticks'");
-        glUniform1f(loc, ticks / 100.0f);                         check_error("setting ticks");
-        loc = glGetUniformLocation(shader, "green");              check_error("getting param 'green'");
-        glUniform1f(loc, state.player.mode * 0.25);               check_error("setting green");
-        loc = glGetUniformLocation(shader, "scale");              check_error("getting param 'scale'");
-        glUniform1f(loc, state.player.scale);                     check_error("setting scale");
+        set_uniform(shader, "rotation", state.player.rotation);   check_error("setting uniform");
+        set_uniform(shader, "ticks", ticks / 100.0f);             check_error("setting ticks");
+        set_uniform(shader, "green", state.player.mode * 0.25);   check_error("setting green");
+        set_uniform(shader, "scale", 0.2 * state.player.scale);   check_error("setting scale");
         glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
         glEnableVertexAttribArray(0);                             check_error("enabling vaa");
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
@@ -206,17 +259,26 @@ namespace gfx
 
         // Render reticle
         glUseProgram(reticle_shader);                             check_error("binding shader");
-        loc = glGetUniformLocation(reticle_shader, "offset");     check_error("getting param");
-        glUniform2f(loc, state.reticle.pos.x, state.reticle.pos.y); check_error("setting uniform");
-        loc = glGetUniformLocation(shader, "scale");              check_error("getting param 'scale'");
-        glUniform1f(loc, state.reticle.scale);                     check_error("setting scale");
+        set_uniform(reticle_shader, "aspect", get_aspect());      check_error("getting param");
+        DEBUGVAR(state.reticle.scale);
+        set_uniform(reticle_shader, "offset", state.reticle.pos); check_error("getting param");
+        set_uniform(reticle_shader, "scale", state.reticle.scale); check_error("setting scale");
+
         glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
         glEnableVertexAttribArray(0);                             check_error("enabling vaa");
         glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
         glDrawArrays(GL_QUADS, 0, 4);                             check_error("drawing arrays");
         glDisableVertexAttribArray(0);                            check_error("disabling vaa");
 
-
+        loc = glGetUniformLocation(reticle_shader, "offset");     check_error("getting param");
+        glUniform2f(loc, 0, 0); check_error("setting uniform");
+        loc = glGetUniformLocation(shader, "scale");              check_error("getting param 'scale'");
+        glUniform1f(loc, 5);                                      check_error("setting scale");
+        glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
+        glEnableVertexAttribArray(0);                             check_error("enabling vaa");
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
+        glDrawArrays(GL_QUADS, 0, 4);                             check_error("drawing arrays");
+        glDisableVertexAttribArray(0);                            check_error("disabling vaa");
     }
 }
 

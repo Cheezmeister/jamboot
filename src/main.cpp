@@ -4,9 +4,9 @@
 
 #include <iostream>
 #include <ctime>
-#include <GL/glew.h>
-#include <GL/gl.h>
 #include "SDL.h"
+#include <GL/glew.h>
+#include "crossgl.h"
 #include "bml.h"
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -63,9 +63,11 @@ Input handle_input()
                 int x = event.window.data1;
                 int y = event.window.data2;
                 viewport.x = x;
-                viewport.y = x;
-                int max = x > y ? x : y;
-                glViewport(0, 0, max, max);
+                viewport.y = y;
+                gfx::resize(x, y);
+                ret.sys.resized = true;
+                ret.sys.resize.w = x;
+                ret.sys.resize.h = y;
             }
         }
 
@@ -99,6 +101,8 @@ Input handle_input()
     ret.axes.y2 = mouse.y * 2.0 / viewport.y - 1.0;
     ret.axes.y2 *= -1;
 
+    /* cerr << "MouseX: " << ret.axes.x2 << '\t' << "MouseY: " << ret.axes.y2 << '\t'; */
+    /* cerr << "vX: " << viewport.x << '\t' << "vY: " << viewport.y << '\n'; */
 
     // Poll the current state of the keyboard
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
@@ -127,14 +131,6 @@ void loop()
     game::init();
 
     GameState state = {0};
-
-    for (int i = 0; i < SDL_NumJoysticks(); ++i)
-    {
-        if (SDL_IsGameController(i))
-        {
-            controller = SDL_GameControllerOpen(i);
-        }
-    }
 
     while (true)
     {
@@ -217,6 +213,25 @@ int main(int argc, char** argv )
     }
 
     print_info();
+
+    for (int i = 0; i < SDL_NumJoysticks(); ++i)
+    {
+        if (SDL_IsGameController(i))
+        {
+            cout << "Detected controller in slot " << i << endl;
+            controller = SDL_GameControllerOpen(i);
+        }
+    }
+
+    SDL_ShowCursor(SDL_DISABLE);
+
+    for (int i = 0; i < SDL_NumJoysticks(); ++i)
+    {
+        if (SDL_IsGameController(i))
+        {
+            controller = SDL_GameControllerOpen(i);
+        }
+    }
 
     loop();
 

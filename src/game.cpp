@@ -1,6 +1,8 @@
 #include <cmath>
 #include "bml.h"
 
+using namespace std;
+
 namespace game {
 
 struct _GameParams {
@@ -11,8 +13,18 @@ void init()
 {
 }
 
+void resize(GameState& state, const Input& input)
+{
+    state.field.w = input.sys.resize.w;
+    state.field.h = input.sys.resize.h;
+}
+
 void update(GameState& state, const Input& input)
 {
+    if (input.sys.resized)
+    {
+        resize(state, input);
+    }
     // Movement with arrow keys/fake axis
     float thrust = params.movespeed * input.axes.y1;
     state.player.rotation -= params.rotspeed * input.axes.x1;
@@ -24,8 +36,10 @@ void update(GameState& state, const Input& input)
     state.player.vel.y *= params.drag;
 
     // Aim with mouse
-    state.reticle.pos.x = input.axes.x2;
-    state.reticle.pos.y = input.axes.y2;
+    float aspect = state.field.w / state.field.h;
+    state.reticle.pos.x = input.axes.x2 * (aspect > 1 ? aspect : 1);
+    state.reticle.pos.y = input.axes.y2 / (aspect < 1 ? aspect : 1);
+    DEBUGVAR(state.reticle.pos);
 
     // Warp/drag with mouse
     if (input.held.prime)
