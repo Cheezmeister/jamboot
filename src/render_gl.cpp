@@ -87,11 +87,16 @@ union VertexBuffer {
   Vertex v[N];
 };
 
+typedef struct _VBO {
+    GLuint handle;
+    GLsizei size;
+} VBO;
+
 typedef struct _RenderState {
   struct _Viewport {
     int width;
     int height;
-    int max;
+    float aspect;
   } viewport;
 } RenderState;
 
@@ -100,10 +105,13 @@ namespace gfx
 
     // Nasty globals
     GLuint vbo;
-    GLuint reticle_vbo;
+    VBO reticle_vbo;
     GLuint shader;
     GLuint reticle_shader;
 
+    // We make the assumption that the screen starts off square.
+    // Actual pixel counts don't matter, only the aspect ratio
+    // Here, a fake 1x1 resolution has an aspect of 1.
     RenderState renderstate = {1, 1, 1};
 
     // Update a VBO
@@ -134,36 +142,63 @@ namespace gfx
     }
 
     // Set a uniform shader param
-    void set_uniform(GLuint shader, const string& name, float f)
+    void set_uniform(GLuint shader, const char* name, float f)
     {
-        GLuint loc = glGetUniformLocation(shader, name.c_str());
+        GLuint loc = glGetUniformLocation(shader, name);
         glUniform1f(loc, f);
+        check_error(string("Setting " )+ name);
     }
-    void set_uniform(GLuint shader, const string& name, float x, float y)
+    void set_uniform(GLuint shader, const char* name, float x, float y)
     {
-        GLuint loc = glGetUniformLocation(shader, name.c_str());
+        GLuint loc = glGetUniformLocation(shader, name);
         glUniform2f(loc, x, y);
+        check_error(string("Setting " )+ name);
     }
-    void set_uniform(GLuint shader, const string& name, const Vec& v)
+    void set_uniform(GLuint shader, const char* name, const Vec& v)
     {
         set_uniform(shader, name, v.x, v.y);
     }
 
+		// Draw a vertext array from a VBO
+		void draw_array(GLuint handle, GLsizei size, GLenum type)
+		{
+				glBindBuffer(GL_ARRAY_BUFFER, handle);
+				glEnableVertexAttribArray(0);
+				glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);
+				glDrawArrays(type, 0, size);
+				glDisableVertexAttribArray(0);
+		}
+		void draw_array(VBO vbo, GLenum type = GL_TRIANGLES)
+		{
+        draw_array(vbo.handle, vbo.size, type);
+		}
+
     // Rejigger viewport
     void resize(int x, int y)
     {
-        int max = x > y ? x : y;
         renderstate.viewport.width = x;
         renderstate.viewport.height = y;
-        renderstate.viewport.max = max;
+        renderstate.viewport.aspect = (float)x / (float)y;
         glViewport(0, 0, x, y);
     }
 
-    float get_aspect()
+		GLuint make_vbo(size_t size, float* vertices)
+		{
+				GLuint handle;
+				glGenBuffers(1, &handle);
+				glBindBuffer(GL_ARRAY_BUFFER, handle);
+				glBufferData(GL_ARRAY_BUFFER, size, vertices, GL_STATIC_DRAW); check_error("buffering");
+				glBindBuffer(GL_ARRAY_BUFFER, 0);
+				return handle;
+		}
+
+    template<int VERTEXCOUNT>
+    VBO make_vbo(VertexBuffer<VERTEXCOUNT> buffer)
     {
-        float width = renderstate.viewport.width;
-        float height = renderstate.viewport.height;
-        return width / height;
+      VBO ret;
+      ret.handle = make_vbo(sizeof(buffer), buffer.flat);
+      ret.size = VERTEXCOUNT;
+      return ret;
     }
 
     // Player shader
@@ -205,26 +240,22 @@ namespace gfx
     }
     void init()
     {
-        // Set up VBO
+        // Set up triangle VBO
         VertexBuffer<3> vertexPositions = {
              0.75f, 0.0f, 0.0f, 1.0f,
             -0.75f, 0.75f, 0.0f, 1.0f,
             -0.75f, -0.75f, 0.0f, 1.0f,
         };
-        glGenBuffers(1, &vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(vertexPositions), vertexPositions.flat, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        vbo = make_vbo(sizeof(vertexPositions), vertexPositions.flat);
+
+        // Set up square VBO
         VertexBuffer<4> reticleVertices = {
             0.1f,  0.1f, 0.0f, 1.0f,
             0.1f, -0.1f, 0.0f, 1.0f,
             -0.1f, -0.1f, 0.0f, 1.0f,
             -0.1f,  0.1f, 0.0f, 1.0f,
         };
-        glGenBuffers(1, &reticle_vbo);
-        glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(reticleVertices), reticleVertices.flat, GL_STATIC_DRAW);
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        reticle_vbo = make_vbo(reticleVertices);
 
         // Init shaders
         shader = make_shader();
@@ -239,46 +270,31 @@ namespace gfx
     void render(GameState& state, u32 ticks)
     {
         // Clear
-        glClear(GL_COLOR_BUFFER_BIT);
-        check_error("clearing to blue");
+        glClear(GL_COLOR_BUFFER_BIT); check_error("clearing screen");
 
-        // Render "player"
-        glUseProgram(shader);                                     check_error("binding shader");
-        set_uniform(shader, "aspect", get_aspect());      check_error("getting param");
-        GLuint loc = glGetUniformLocation(shader, "offset");      check_error("getting param 'offset'");
-        glUniform2f(loc, state.player.pos.x, state.player.pos.y); check_error("setting uniform");
-        set_uniform(shader, "rotation", state.player.rotation);   check_error("setting uniform");
-        set_uniform(shader, "ticks", ticks / 100.0f);             check_error("setting ticks");
-        set_uniform(shader, "green", state.player.mode * 0.25);   check_error("setting green");
-        set_uniform(shader, "scale", 0.2 * state.player.scale);   check_error("setting scale");
-        glBindBuffer(GL_ARRAY_BUFFER, vbo);                       check_error("binding buf");
-        glEnableVertexAttribArray(0);                             check_error("enabling vaa");
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
-        glDrawArrays(GL_TRIANGLES, 0, 3);                         check_error("drawing arrays");
-        glDisableVertexAttribArray(0);                            check_error("disabling vaa");
+        // Render "player", drawing array from raw handle
+        glUseProgram(shader); check_error("binding shader");
+        set_uniform(shader, "aspect", renderstate.viewport.aspect);
+        set_uniform(shader, "offset", state.player.pos);
+        set_uniform(shader, "rotation", state.player.rotation);
+        set_uniform(shader, "ticks", ticks);
+        set_uniform(shader, "green", state.player.mode * 0.25);
+        set_uniform(shader, "scale", 0.2 * state.player.scale);
+				draw_array(vbo, 3, GL_TRIANGLES);
 
-        // Render reticle
-        glUseProgram(reticle_shader);                             check_error("binding shader");
-        set_uniform(reticle_shader, "aspect", get_aspect());      check_error("getting param");
-        DEBUGVAR(state.reticle.scale);
-        set_uniform(reticle_shader, "offset", state.reticle.pos); check_error("getting param");
-        set_uniform(reticle_shader, "scale", state.reticle.scale); check_error("setting scale");
+        // Render reticle, drawing from VBO struct
+        glUseProgram(reticle_shader); check_error("binding shader");
+        set_uniform(reticle_shader, "aspect", renderstate.viewport.aspect);
+        set_uniform(reticle_shader, "offset", state.reticle.pos);
+        set_uniform(reticle_shader, "rotation", ticks / 1000.0f);
+        set_uniform(reticle_shader, "scale", state.reticle.scale);
+        draw_array(reticle_vbo, GL_QUADS);
 
-        glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
-        glEnableVertexAttribArray(0);                             check_error("enabling vaa");
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
-        glDrawArrays(GL_QUADS, 0, 4);                             check_error("drawing arrays");
-        glDisableVertexAttribArray(0);                            check_error("disabling vaa");
-
-        loc = glGetUniformLocation(reticle_shader, "offset");     check_error("getting param");
-        glUniform2f(loc, 0, 0); check_error("setting uniform");
-        loc = glGetUniformLocation(shader, "scale");              check_error("getting param 'scale'");
-        glUniform1f(loc, 5);                                      check_error("setting scale");
-        glBindBuffer(GL_ARRAY_BUFFER, reticle_vbo);               check_error("binding buf");
-        glEnableVertexAttribArray(0);                             check_error("enabling vaa");
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, 0);    check_error("calling vap");
-        glDrawArrays(GL_QUADS, 0, 4);                             check_error("drawing arrays");
-        glDisableVertexAttribArray(0);                            check_error("disabling vaa");
+        // Draw centered 1-unit square, reusing reticle vertices
+        set_uniform(reticle_shader, "offset", 0, 0);
+        set_uniform(reticle_shader, "scale", 5);
+        set_uniform(reticle_shader, "rotation", 0);
+        draw_array(reticle_vbo, GL_QUADS);
     }
 }
 

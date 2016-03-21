@@ -101,9 +101,6 @@ Input handle_input()
     ret.axes.y2 = mouse.y * 2.0 / viewport.y - 1.0;
     ret.axes.y2 *= -1;
 
-    /* cerr << "MouseX: " << ret.axes.x2 << '\t' << "MouseY: " << ret.axes.y2 << '\t'; */
-    /* cerr << "vX: " << viewport.x << '\t' << "vY: " << viewport.y << '\n'; */
-
     // Poll the current state of the keyboard
     const Uint8* keystate = SDL_GetKeyboardState(NULL);
     ret.axes.y1  = 1.0 * (keystate[SDL_SCANCODE_UP]);
@@ -124,7 +121,7 @@ Input handle_input()
 }
 
 
-void loop()
+void enter_main_loop()
 {
 
     gfx::init();
@@ -233,7 +230,7 @@ int main(int argc, char** argv )
         }
     }
 
-    loop();
+    enter_main_loop();
 
     if (controller) SDL_GameControllerClose(controller);
     SDL_GL_DeleteContext(context);

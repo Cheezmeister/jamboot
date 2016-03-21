@@ -39,7 +39,6 @@ void update(GameState& state, const Input& input)
     float aspect = state.field.w / state.field.h;
     state.reticle.pos.x = input.axes.x2 * (aspect > 1 ? aspect : 1);
     state.reticle.pos.y = input.axes.y2 / (aspect < 1 ? aspect : 1);
-    DEBUGVAR(state.reticle.pos);
 
     // Warp/drag with mouse
     if (input.held.prime)
