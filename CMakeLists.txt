@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.6)
 #definitions
 set(PROJECT_NAME "Jamboot")
 set(APP_NAME jam)
-set(PROJECT_VERSION 1 0 0)
+set(PROJECT_VERSION 1 0 1)
 set(DESCRIPTION "playtime")
 set(README README.txt)
 set(LICENSE ${README})
@@ -21,7 +21,7 @@ set(VERSION_STRING "${CPACK_PACKAGE_VERSION_MAJOR}.${CPACK_PACKAGE_VERSION_MINOR
 cmake_policy(VERSION 2.8)
 
 #declare the project
-project(${PROJECT_NAME} VERSION ${VERSION_STRING})
+project(${PROJECT_NAME})
 
 #Find required tools (SDL, GL, GLEW)
 find_package(SDL REQUIRED)
