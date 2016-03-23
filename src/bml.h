@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cstdlib>
 #include <stdint.h>
 
 #ifndef NULL
