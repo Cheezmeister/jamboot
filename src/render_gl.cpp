@@ -33,7 +33,8 @@ namespace arcsynthesis {
             glGetShaderInfoLog(shader, infoLogLength, NULL, strInfoLog);
 
             const char *strShaderType = eShaderType == GL_VERTEX_SHADER ? "vertex" : "fragment";
-            fprintf(stderr, "Compile failure in %s shader:\n%s\n", strShaderType, strInfoLog);
+            cerr << "Compile failure in " << strShaderType << " shader:\n";
+            cerr << strInfoLog << endl;
             delete[] strInfoLog;
         }
 
@@ -59,7 +60,7 @@ namespace arcsynthesis {
 
             GLchar *strInfoLog = new GLchar[infoLogLength + 1];
             glGetProgramInfoLog(program, infoLogLength, NULL, strInfoLog);
-            fprintf(stderr, "Linker failure: %s\n", strInfoLog);
+            cerr << "Linker failure: " << strInfoLog << endl;
             delete[] strInfoLog;
         }
 
