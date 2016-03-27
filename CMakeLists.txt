@@ -10,7 +10,7 @@ set(README README.txt)
 set(LICENSE ${README})
 set(AUTHORS "Brendan Luchen")
 set(CMAKE_BUILD_TYPE Debug)
-set(CMAKE_MODULE_PATH "./cmake/Modules")
+# set(CMAKE_MODULE_PATH "./cmake/Modules")
 
 #extract the proper versioning breakdown
 list(GET PROJECT_VERSION 0 CPACK_PACKAGE_VERSION_MAJOR )

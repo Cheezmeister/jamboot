@@ -12,9 +12,7 @@ Minimalist boilerplate for procedural games using SDL2+OpenGL2.1.
 
 This document doubles as a bootstrapping script in literate Perl.
 
-CMake was really slick when it came out, but it hasn't aged well. Its real selling point is/was
-the ability to detect common libraries out of the box, but in practice that's rarely the case.
-OpenGL itself is usually detected fine, but that's about it.
+CMake has problems detecting SDL2 and GLEW. OpenGL itself is usually detected fine, but that's about it.
 
 Let's generate a `FindGLEW.cmake` and a `FindSDL2.cmake`.
 

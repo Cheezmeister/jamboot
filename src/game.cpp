@@ -25,6 +25,7 @@ void update(GameState& state, const Input& input)
     {
         resize(state, input);
     }
+
     // Movement with arrow keys/fake axis
     float thrust = params.movespeed * input.axes.y1;
     state.player.rotation -= params.rotspeed * input.axes.x1;
