@@ -6,7 +6,15 @@ Minimalist boilerplate for procedural games using SDL2+OpenGL2.1.
 
 * Cross-platform window creation and GL initialization
 * Gamepad, Mouse, and Keyboard input
-* Embedded shaders
+* Manage yer shaders
+
+### Not Features
+
+* No components
+* No particles
+* No mobile
+* No steam
+* No sound (yet)
 
 ## CMake scripts
 
