@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 #include "crossgl.h"
 #include "bml.h"
+#include "sig.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 using namespace std;
@@ -17,8 +18,8 @@ typedef struct _Args {
 } Args;
 
 typedef struct _Dimension2 {
-  float x;
-  float y;
+    float x;
+    float y;
 } Dimension2;
 
 
@@ -54,6 +55,7 @@ Input handle_input()
     {
         if (event.type == SDL_QUIT) ret.quit = true;
         if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) ret.quit = true;
+        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_q) ret.quit = true;
 
         // Window resize
         if (event.type == SDL_WINDOWEVENT)
@@ -114,6 +116,13 @@ Input handle_input()
     ret.axes.y3 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_LEFTY) / (float)32767;
     ret.axes.y4 = SDL_GameControllerGetAxis(controller, SDL_CONTROLLER_AXIS_RIGHTY) / (float)32767;
 
+#define DEADZONE(x) if (abs(x) < 0.25) x = 0
+    DEADZONE(ret.axes.x3);
+    DEADZONE(ret.axes.x4);
+    DEADZONE(ret.axes.y3);
+    DEADZONE(ret.axes.y4);
+#undef DEADZONE
+
     // Poll gamepad buttons
     ret.held.aux = SDL_GameControllerGetButton(controller, SDL_CONTROLLER_BUTTON_RIGHTSHOULDER);
 
@@ -125,18 +134,21 @@ void enter_main_loop()
 {
 
     gfx::init();
-    game::init();
+    GameState state = game::init();
 
-    GameState state = {0};
-
+    u32 startTicks = SDL_GetTicks();
     while (true)
     {
         // Timing
-        u32 ticks = SDL_GetTicks();
+        u32 ticks = SDL_GetTicks() - startTicks;
 
         // Input
         Input input = handle_input();
-        if (input.quit) break;
+        if (input.quit)
+        {
+            cout << "You'll never get rich with that attitude.";
+            break;
+        }
 
         // Process gameplay
         game::update(state, input);
@@ -166,6 +178,13 @@ void print_info()
     printf("GLEW version: %s\n", glewGetString(GLEW_VERSION));
 }
 
+// https://stackoverflow.com/a/37152083/118220
+#ifdef _MSVC_LANG
+#ifdef main
+#undef main
+#endif
+#endif
+
 extern "C"
 int main(int argc, char** argv )
 {
@@ -180,9 +199,9 @@ int main(int argc, char** argv )
         return 1;
     }
 
-    viewport.x = 200;
-    viewport.y = 200;
-    win = SDL_CreateWindow("SDL2/GL2.1", 0, 0, 200, 200, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
+    viewport.x = VIEWPORT_WIDTH;
+    viewport.y = VIEWPORT_HEIGHT;
+    win = SDL_CreateWindow("SDL2/GL2.1", 0, 0, viewport.x, viewport.y, SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE);
     if (win == NULL)
     {
         cerr << "Couldn't set video mode";
@@ -229,6 +248,8 @@ int main(int argc, char** argv )
             controller = SDL_GameControllerOpen(i);
         }
     }
+
+    gfx::resize(viewport.x, viewport.y);
 
     enter_main_loop();
 

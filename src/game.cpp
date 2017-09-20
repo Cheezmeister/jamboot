@@ -1,5 +1,6 @@
 #include <cmath>
 #include "bml.h"
+#include "game.h"
 
 using namespace std;
 

@@ -40,7 +40,7 @@ file(GLOB_RECURSE HEADERS ${CMAKE_SOURCE_DIR}/src/*.h)
 list(APPEND SOURCES 
   src/main.cpp 
   src/game.cpp 
-  src/render_gl.cpp
+  src/gfx.cpp
 )
 
 #declare the target program

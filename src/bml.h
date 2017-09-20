@@ -1,4 +1,5 @@
 #include <iostream>
+#include <cmath>
 #include <cstdlib>
 #include <stdint.h>
 
@@ -26,8 +27,8 @@ namespace bml
 {
 static std::ostream& logger = std::cout;
 typedef struct _Vec {
-  float x;
-  float y;
+    float x;
+    float y;
 } Vec;
 
 
@@ -38,6 +39,16 @@ const Vec UNIT_Y = { 0, 1 };
 static float cross(const Vec& lhs, const Vec& rhs)
 {
     return lhs.x * rhs.y - rhs.x * lhs.y;
+}
+
+static float dot(const Vec& lhs, const Vec& rhs)
+{
+    return lhs.x * rhs.x + lhs.y * rhs.y;
+}
+
+static float length(const Vec& vec)
+{
+    return sqrt(vec.x*vec.x + vec.y*vec.y);
 }
 
 static void negate(Vec& vec)
@@ -85,6 +96,11 @@ static Vec operator *(const Vec& lhs, float rhs)
 {
     Vec ret = {lhs.x * rhs, lhs.y * rhs};
     return ret;
+}
+
+static Vec project(const Vec& lhs, const Vec& rhs)
+{
+    return (dot(lhs, rhs) / dot(rhs, rhs)) * rhs;
 }
 
 static std::ostream& operator<<(std::ostream& lhs, const Vec& rhs)
@@ -139,37 +155,19 @@ typedef struct _Input {
         bool prime;
         bool aux;
     } action;
-    
+
 } Input;
-
-
-typedef struct _GameState {
-    struct _Player {
-        bml::Vec pos;
-        bml::Vec vel;
-        float rotation; // radians
-        float scale; // 0-2.0
-        int mode;
-    } player;
-    struct _Reticle {
-        bml::Vec pos;
-        float scale; // 0-2.0
-    } reticle;
-    struct _Field {
-        float w;
-        float h;
-    } field;
-} GameState;
 
 namespace gfx
 {
-  void init();
-  void render(GameState& state, u32 ticks);
-  void resize(int width, int height);
+void init();
+void render(GameState& state, u32 ticks);
+void resize(int width, int height);
 }
 
 namespace game
 {
-  void init();
-  void update(GameState& state, const Input& input);
+struct GameState;
+GameState init();
+void update(GameState& state, const Input& input);
 }
