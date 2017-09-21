@@ -4,7 +4,7 @@
 
 #include <GL/glew.h>
 #include "crossgl.h"
-#include "bml.h"
+#include "game.h"
 
 #define GLSL_VERSION "#version 120\n"
 
@@ -236,47 +236,26 @@ void init()
     };
     vbo_quad = make_vbo(reticleVertices);
 
-    GLuint vs_noop = arcsynthesis::CreateShader(
-                         GL_VERTEX_SHADER, GLSL_VERSION
+    GLuint vs_noop = arcsynthesis::CreateShader(GL_VERTEX_SHADER, GLSL_VERSION
 #include "noop.vertex.glsl"
                      );
     check_error("Compiling noop.vertex.glsl");
 
-    GLuint vs_topbar = arcsynthesis::CreateShader(
-                           GL_VERTEX_SHADER, GLSL_VERSION
-#include "topbar.vertex.glsl"
-                       );
-    check_error("Compiling affine.vertex.glsl");
 
-    GLuint vs_affine = arcsynthesis::CreateShader(
-                           GL_VERTEX_SHADER, GLSL_VERSION
+    GLuint vs_affine = arcsynthesis::CreateShader(GL_VERTEX_SHADER, GLSL_VERSION
 #include "affine.vertex.glsl"
                        );
     check_error("Compiling affine.vertex.glsl");
 
-    GLuint fs_pulse = arcsynthesis::CreateShader(
-                          GL_FRAGMENT_SHADER, GLSL_VERSION
+    GLuint fs_pulse = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER, GLSL_VERSION
 #include "pulse.fragment.glsl"
                       );
     check_error("Compiling pulse.fragment.glsl");
 
-    GLuint fs_dot = arcsynthesis::CreateShader(
-                        GL_FRAGMENT_SHADER, GLSL_VERSION
+    GLuint fs_dot = arcsynthesis::CreateShader(GL_FRAGMENT_SHADER, GLSL_VERSION
 #include "dot.fragment.glsl"
                     );
     check_error("Compiling dot.fragment.glsl");
-
-    GLuint fs_solid = arcsynthesis::CreateShader(
-                          GL_FRAGMENT_SHADER, GLSL_VERSION
-#include "solid.fragment.glsl"
-                      );
-    check_error("Compiling solid.fragment.glsl");
-
-    GLuint fs_meter = arcsynthesis::CreateShader(
-                          GL_FRAGMENT_SHADER, GLSL_VERSION
-#include "meter.fragment.glsl"
-                      );
-    check_error("Compiling solid.fragment.glsl");
 
     // Init shaders
     renderstate.shaders.player = make_shader(vs_affine, fs_dot);
@@ -288,7 +267,7 @@ void init()
 }
 
 // Render a frame
-void render(GameState& state, u32 ticks)
+void render(game::GameState& state, u32 ticks)
 {
     // Clear
     glClear(GL_COLOR_BUFFER_BIT);
@@ -308,14 +287,11 @@ void render(GameState& state, u32 ticks)
     glUseProgram(renderstate.shaders.reticle);
     check_error("binding renderstate.shaders.reticle");
 
-    set_uniform(reticle_shader, "aspect", renderstate.viewport.aspect);
-    set_uniform(reticle_shader, "offset", state.reticle.pos);
-    set_uniform(reticle_shader, "rotation", ticks / 1000.0f);
-    set_uniform(reticle_shader, "scale", state.reticle.scale);
+    set_uniform(renderstate.shaders.reticle, "aspect", renderstate.viewport.aspect);
+    set_uniform(renderstate.shaders.reticle, "offset", state.reticle.pos);
+    set_uniform(renderstate.shaders.reticle, "rotation", ticks / 1000.0f);
+    set_uniform(renderstate.shaders.reticle, "scale", state.reticle.scale);
 
-    set_uniform(renderstate.shaders.meter, "hsv", 0.7, 1.0, 0.5);
-    set_uniform(renderstate.shaders.meter, "ticks", ticks);
-    set_uniform(renderstate.shaders.meter, "metervalue", state.player.fliff);
     draw_array(vbo_quad, GL_QUADS);
 
 
