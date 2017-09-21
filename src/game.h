@@ -2,7 +2,12 @@
 
 using namespace bml;
 
-namespace game {
+const int VIEWPORT_WIDTH = 400;
+const int VIEWPORT_HEIGHT = 300;
+
+
+namespace game
+{
 typedef struct _GameState {
     struct _Player {
         Vec pos;
@@ -21,4 +26,13 @@ typedef struct _GameState {
     } field;
 } GameState;
 
+void init();
+void update(GameState& state, const Input& input);
+}
+
+namespace gfx
+{
+void init();
+void render(game::GameState& state, u32 ticks);
+void resize(int width, int height);
 }

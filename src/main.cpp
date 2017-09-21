@@ -7,8 +7,7 @@
 #include "SDL.h"
 #include <GL/glew.h>
 #include "crossgl.h"
-#include "bml.h"
-#include "sig.h"
+#include "game.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 using namespace std;
@@ -134,7 +133,8 @@ void enter_main_loop()
 {
 
     gfx::init();
-    GameState state = game::init();
+    game::GameState state = {0};
+    game::init();
 
     u32 startTicks = SDL_GetTicks();
     while (true)
@@ -144,11 +144,7 @@ void enter_main_loop()
 
         // Input
         Input input = handle_input();
-        if (input.quit)
-        {
-            cout << "You'll never get rich with that attitude.";
-            break;
-        }
+        if (input.quit) break;
 
         // Process gameplay
         game::update(state, input);

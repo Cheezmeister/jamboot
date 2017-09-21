@@ -158,16 +158,3 @@ typedef struct _Input {
 
 } Input;
 
-namespace gfx
-{
-void init();
-void render(GameState& state, u32 ticks);
-void resize(int width, int height);
-}
-
-namespace game
-{
-struct GameState;
-GameState init();
-void update(GameState& state, const Input& input);
-}
